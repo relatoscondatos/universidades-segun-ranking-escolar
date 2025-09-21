@@ -180,7 +180,7 @@
     // Create the plot
     display(Plot.plot({
       title: `Distribución de estudiantes por universidad (${d3.format(",")(d3.sum(plotData, d => d.estudiantes))} estudiantes)`,
-      subtitle: `Establecimientos ${schoolTypeSelector.label.toLowerCase()}, Región ${regionDict[schoolRegion].name}. Solo universidades con al menos ${d3.format(",")(minStudents)} estudiantes en el grupo seleccionado.`,
+      subtitle: `Establecimientos ${schoolTypeSelector.label.toLowerCase()}, Región ${regionDict[schoolRegion].name}, egresados de Enseñanza Media en 2023 y matriculados en Universidades en 2024. Solo universidades con al menos ${d3.format(",")(minStudents)} estudiantes en el grupo seleccionado.`,
       caption: "Ordenado por proporción de estudiantes del 30% de mejor rendimiento",
       width: 900,
       height: Math.max(400, filteredInstitutions.length * 30),
