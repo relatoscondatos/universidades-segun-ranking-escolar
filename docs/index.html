@@ -231,7 +231,7 @@
     }))
   </script>
   <script id="31" type="text/markdown">
-    Fuente de atos:  Datos Abiertos, Ministerio de Educación de Chile
+    Fuente de datos: Datos Abiertos, Ministerio de Educación de Chile
   </script>
   <script id="33" type="text/markdown">
     Autor: @elaval
@@ -301,7 +301,7 @@
     GROUP BY institution_name, categoriaPercentil,school_type,school_region_code
     ORDER BY institution_name, categoriaPercentil,school_type,school_region_code
   </script>
-  <script id="34" type="application/sql" pinned="" database="duckdb" output="data">
+  <script id="34" type="application/sql" hidden="" database="duckdb" output="data">
     WITH tabla as (
       SELECT
         EM.PERCENTIL as percentile,
