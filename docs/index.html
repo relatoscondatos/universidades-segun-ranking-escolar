@@ -1,17 +1,17 @@
 <!doctype html>
 <notebook theme="glacier">
-  <title>Distribución de estudiantes del 30% superior del ranking escolar en universidades chilenas</title>
+  <title>Distribución de estudiantes del 30% de mejor rendimiento de su promoción escolar en universidades chilenas</title>
   <script id="1" type="text/markdown">
-    # Distribución de estudiantes del 30% superior del ranking escolar en universidades chilenas
+    # Distribución de estudiantes del 30% de mejor rendimiento de su promoción escolar en universidades chilenas
   </script>
   <script id="26" type="text/markdown">
     Según los datos abiertos del Ministerio de Educación de Chile, hay registros de **${d3.format(".3s")(data_totalEM[0].estudiantes)}** estudiantes egresados de Educación Media en 2023.
 
     De estos egresados, **${d3.format(".3s")(data_matriculadosES[0].est_universidades)}** se matricularon en universidades en 2024.
 
-    Entre las matrículas universitarias, **${d3.format(".3s")(data_matriculados_ESTop30[0].estudiantes)}** corresponden a estudiantes que se encontraban en el 30% superior del percentil de egreso de Educación Media (ranking de EM), según información reportada por el Ministerio de Educación.
+    Entre las matrículas universitarias, **${d3.format(".3s")(data_matriculados_ESTop30[0].estudiantes)}** corresponden a estudiantes que se encontraban en el 30% de mejor rendimiento de su promoción escolar, según información reportada por el Ministerio de Educación.
 
-    En esta página podrás explorar en qué universidades se matricularon los estudiantes del 30% superior del ranking de egreso de Educación Media, segmentado por tipo de dependencia y región del establecimiento de origen.
+    En esta página podrás explorar en qué universidades se matricularon los estudiantes del 30% de mejor rendimiento de su promoción escolar, segmentado por tipo de dependencia y región del establecimiento de origen.
   </script>
   <script id="7" type="module" hidden="">
     const schoolTypeOptions = [
@@ -46,6 +46,11 @@
       )
     );
   </script>
+  <script id="46" type="text/markdown">
+    En la Región ${regionDict[schoolRegion].name}, de los establecimientos ${schoolTypeSelector.label.toLowerCase()}, egresaron ${d3.format(",")(selectionStats.estudiantes)} estudiantes que se matricularon en universidades en 2024.
+
+    De ellos, ${d3.format(",")(selectionStats.estudiantes_top30)} pertenecían al 30% de mejor rendimiento de su promoción escolar.
+  </script>
   <script id="12" type="module" hidden="">
     // Check if data is available
     if (typeof data === 'undefined') {
@@ -73,50 +78,43 @@
         institution_name,
         estudiantes
       }))
-      .filter(d => d.estudiantes > minStudents) // Filter institutions with more than minStudents
+      .filter(d => d.estudiantes > minStudents)
       .sort((a, b) => b.estudiantes - a.estudiantes);
 
-      if (chartData.length === 0) {
-        display("No hay datos disponibles para el filtro seleccionado.");
-      } else {
-        // Create bar chart
-        const chart = Plot.plot({
-          title: `Matrícula universitaria de estudiantes del 30% superior de ranking de Ed. Media`,
-          subtitle: `Establecimientos ${schoolTypeSelector.label} - ${regionDict[schoolRegion].name}`,
-          caption: `Egresados de Ed. Media 2023 con matrícula universitaria 2024. Solo universidades con más de ${minStudents} estudiantes.`,
-          width,
-          height: Math.max(400, chartData.length * 25), // Dynamic height based on number of institutions
-          marginLeft: 350, // More space for institution names
-          marginRight: 100,
-          x: {
-            label: "Número de estudiantes",
-            grid: true
-          },
-          y: {
-            label: "Universidad",
-            domain: chartData.map(d => d.institution_name)
-          },
-          marks: [
-            Plot.barX(chartData, {
-              x: "estudiantes",
-              y: "institution_name",
-              fill: "steelblue",
-              tip: true
-            }),
-            Plot.text(chartData, {
-              x: "estudiantes",
-              y: "institution_name",
-              text: d => d.estudiantes,
-              textAnchor:"start",
-              dx: 5,
-              fontSize: 10,
-              fill: "black"
-            })
-          ]
-        });
-
-        display(chart);
-      }
+      // Create the chart
+      display(Plot.plot({
+        title: `Estudiantes del 30% de mejor rendimiento matriculados en universidades (${d3.format(",")(selectionStats.estudiantes_top30)} estudiantes)`,
+        subtitle: `Establecimientos ${schoolTypeSelector.label.toLowerCase()}, Región ${regionDict[schoolRegion].name}.  Solo universidades con al menos ${d3.format(",")(minStudents)} estudiantes en el 30% de mejor rendimiento.`,
+        width: 800,
+        height: Math.max(400, chartData.length * 25),
+        marginLeft: 300,
+        marginRight: 50,
+        x: {
+          label: "Número de estudiantes",
+          tickFormat: d3.format(",")
+        },
+        y: {
+          label: null,
+          domain: chartData.map(d => d.institution_name)
+        },
+        marks: [
+          Plot.barX(chartData, {
+            x: "estudiantes",
+            y: "institution_name",
+            fill: "steelblue",
+            tip: true
+          }),
+          Plot.text(chartData, {
+            x: "estudiantes",
+            y: "institution_name",
+            text: d => d3.format(",")(d.estudiantes),
+            textAnchor: "start",
+            dx: 5,
+            fill: "black",
+            fontSize: 12
+          })
+        ]
+      }));
     }
   </script>
   <script id="35" type="text/markdown">
@@ -153,85 +151,71 @@
       dataPlotGrouped,
       v => {
         const total = d3.sum(v, d => d.estudiantes);
-        const menorIgual30 = v.find(d => d.categoriaPercentil === "30% de mejor rendimiento")?.estudiantes || 0;
+        const menorIgual30 = d3.sum(v.filter(d => d.categoriaPercentil === "30% de mejor rendimiento"), d => d.estudiantes);
+        const proportion = menorIgual30 / total;
         return {
-          institution_name: v[0].institution_name,
-          proportion: menorIgual30 / total,
           total,
-          menorIgual30, // Add this to track students in top 30%
+          menorIgual30,
+          proportion,
           data: v
         };
       },
       d => d.institution_name
     );
 
-    // Filter institutions with minimum number of students
-    const filteredData = Array.from(dataWithProportions.values())
-      .filter(d => d.total >= minStudents);
+    // Filter institutions with at least minStudents total students and sort by proportion
+    const filteredInstitutions = Array.from(dataWithProportions)
+      .filter(([, stats]) => stats.total >= minStudents)
+      .sort((a, b) => b[1].proportion - a[1].proportion);
 
-    // Sort institutions by proportion of "30% de mejor rendimiento" (descending)
-    const sortedInstitutions = filteredData
-      .sort((a, b) => b.proportion - a.proportion)
-      .map(d => d.institution_name);
-
-    // Create a map for quick lookup of total students (not just top 30%)
-    const totalStudentsMap = new Map(
-      filteredData.map(d => [d.institution_name, d.total])
+    // Prepare data for plotting
+    const plotData = filteredInstitutions.flatMap(([institution_name, stats]) =>
+      stats.data.map(d => ({
+        ...d,
+        proportion: stats.proportion,
+        total: stats.total
+      }))
     );
 
-    // Filter the grouped data to only include institutions that meet the threshold
-    // and add percentage information to each data point
-    const filteredDataPlot = dataPlotGrouped
-      .filter(d => filteredData.some(inst => inst.institution_name === d.institution_name))
-      .map(d => ({
-        ...d,
-        total: totalStudentsMap.get(d.institution_name),
-        percentage: d.estudiantes / totalStudentsMap.get(d.institution_name)
-      }));
-
+    // Create the plot
     display(Plot.plot({
-      title: 'Composición de matrícula universitaria según ranking de egreso de EM',
-      subtitle: `Establecimientos ${schoolTypeSelector.label} - Región ${regionDict[schoolRegion].name} (2023)`,
-      caption: `Composición porcentual de estudiantes matriculados en universidades en 2024, clasificados según su posición en el ranking de egreso de EM en 2023 (30% superior vs. 70% restante). Solo se muestran universidades con al menos ${minStudents} estudiantes. N indica el total de estudiantes matriculados por universidad.`,
-      width,
-      color: {
-        legend: true,
-        domain: ["30% de mejor rendimiento", "70% restante"]
+      title: `Distribución de estudiantes por universidad (${d3.format(",")(d3.sum(plotData, d => d.estudiantes))} estudiantes)`,
+      subtitle: `Establecimientos ${schoolTypeSelector.label.toLowerCase()}, Región ${regionDict[schoolRegion].name}. Solo universidades con al menos ${d3.format(",")(minStudents)} estudiantes en el grupo seleccionado.`,
+      caption: "Ordenado por proporción de estudiantes del 30% de mejor rendimiento",
+      width: 900,
+      height: Math.max(400, filteredInstitutions.length * 30),
+      marginLeft: 300,
+      x: {
+        label: "Número de estudiantes",
+        tickFormat: d3.format(",")
       },
-      marginLeft: 380, // Increased margin to accommodate longer labels
       y: {
-        domain: sortedInstitutions,
-        tickFormat: d => `${d} (N=${totalStudentsMap.get(d)})`,
-        label:"Universidad"
+        label: null,
+        domain: filteredInstitutions.map(([institution_name]) => institution_name)
       },
-      x:{
-        grid:true, percent:true,
-        label: "Porcentaje de estudiantes"
+      color: {
+        domain: ["30% de mejor rendimiento", "70% restante"],
+        range: ["#2563eb", "#94a3b8"]
       },
       marks: [
-        Plot.barX(
-          filteredDataPlot,
-          Plot.stackX({
-            offset: "normalize",
-            x: "estudiantes",
-            y: "institution_name",
-            fill: "categoriaPercentil",
-            fillOpacity:0.8,
-            order: ["Menor o igual a 30", "Sobre 30 y Bajo 70", "Mayor o igual a 70"],
-            tip: {
-              format: {
-                institution_name: (d) => d,
-                categoriaPercentil: (d) => `Ranking EM: ${d}`,
-                estudiantes: (d) => `${d3.format(",")(d)} estudiantes`,
-                x: (d) => `${d3.format(".1%")(d/100)}`,
-                total: (d) => `Total: ${d3.format(",")(d)} estudiantes`
-              }
-            }
-          })
-        ),
-        Plot.ruleX([0])
+        Plot.barX(plotData, {
+          x: "estudiantes",
+          y: "institution_name",
+          fill: "categoriaPercentil",
+          tip: true
+        }),
+        Plot.text(filteredInstitutions, {
+          x: 0,
+          y: ([institution_name]) => institution_name,
+          text: ([, stats]) => `${d3.format(".0%")(stats.proportion)} (${d3.format(",")(stats.menorIgual30)}/${d3.format(",")(stats.total)})`,
+          textAnchor: "start",
+          dx: 5,
+          fill: "lightgrey",
+          fontSize: 11,
+          fontWeight: "bold"
+        })
       ]
-    }))
+    }));
   </script>
   <script id="31" type="text/markdown">
     Fuente de datos: Datos Abiertos, Ministerio de Educación de Chile
@@ -275,7 +259,39 @@
       12: { name: "Magallanes", order: 16 }
     };
   </script>
-  <script id="9" type="application/sql" hidden="" database="duckdb" output="data_">
+  <script id="36" type="application/sql" database="var:db">
+    SELECT institution_name,sum(estudiantes)
+    FROM data_
+    GROUP BY institution_name
+    order by sum(estudiantes)
+  </script>
+  <script id="43" type="text/x-typescript">
+    // Get the school type codes that match the selected label
+    const schoolTypeCodes = Object.entries(schoolTypeDict)
+      .filter(([, label]) => label === schoolTypeSelector.label)
+      .map(([code]) => parseInt(code));
+
+    // Construct the SQL query with the codes directly in the WHERE clause
+    const selectedData =[...(await db.query(`
+      SELECT
+        SUM(estudiantes) as total_estudiantes,
+        SUM(CASE WHEN categoriaPercentil = '30% de mejor rendimiento' THEN estudiantes ELSE 0 END) as estudiantes_top30
+      FROM data
+      WHERE school_type IN (${schoolTypeCodes.join(',')})
+        AND school_region_code = ${schoolRegion}
+    `))];
+
+    const selectionStats = {
+      estudiantes: selectedData[0].total_estudiantes,
+      estudiantes_top30: selectedData[0].estudiantes_top30
+    }
+
+
+  </script>
+  <script id="37" type="text/x-typescript">
+    const db = DuckDBClient.of({data_,data})
+  </script>
+  <script id="9" type="application/sql" hidden="" database="duckdb" output="data">
     WITH tabla as (
       SELECT
         percentile,
@@ -304,7 +320,7 @@
     GROUP BY institution_name, categoriaPercentil,school_type,school_region_code
     ORDER BY institution_name, categoriaPercentil,school_type,school_region_code
   </script>
-  <script id="34" type="application/sql" hidden="" database="duckdb" output="data">
+  <script id="34" type="application/sql" hidden="" database="duckdb" output="data_">
     WITH tabla as (
       SELECT
         EM.PERCENTIL as percentile,
@@ -374,5 +390,14 @@
     INNER JOIN '../data/20250729_Matrícula_Ed_Superior_2024_PUBL_MRUN.parquet' ES ON
       EM.MRUN = ES.mrun
     WHERE PERCENTIL::Int <= 30
+  </script>
+  <script id="47" type="module">
+    // Configurar locale de D3 para usar punto como separador de miles
+    d3.formatDefaultLocale({
+      decimal: ",",
+      thousands: ".",
+      grouping: [3],
+      currency: ["$", ""]
+    });
   </script>
 </notebook>
